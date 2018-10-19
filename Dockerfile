@@ -1,34 +1,21 @@
-FROM ubuntu:14.04
-MAINTAINER Brad Parker <brad@parker1723.com>
-RUN apt-get update
-RUN apt-get -y upgrade
-RUN DEBIAN_FRONTEND=noninteractive apt-get -y install mysql-client mysql-server apache2 libapache2-mod-php5 pwgen python-setuptools vim-tiny php5-mysql  php5-ldap unzip
+FROM vulhub/nginx:heartbleed
 
-# setup hackazon
-RUN easy_install supervisor
-ADD ./scripts/start.sh /start.sh
-ADD ./scripts/passwordHash.php /passwordHash.php
-ADD ./scripts/foreground.sh /etc/apache2/foreground.sh
-ADD ./configs/supervisord.conf /etc/supervisord.conf
-ADD ./configs/000-default.conf /etc/apache2/sites-available/000-default.conf
-RUN rm -rf /var/www/
-ADD https://github.com/rapid7/hackazon/archive/master.zip /hackazon-master.zip
-RUN unzip /hackazon-master.zip -d hackazon
-RUN mkdir /var/www/
-RUN mv /hackazon/hackazon-master/ /var/www/hackazon
-RUN cp /var/www/hackazon/assets/config/db.sample.php /var/www/hackazon/assets/config/db.php
-RUN cp /var/www/hackazon/assets/config/email.sample.php /var/www/hackazon/assets/config/email.php
-ADD ./configs/parameters.php /var/www/hackazon/assets/config/parameters.php
-ADD ./configs/rest.php /var/www/hackazon/assets/config/rest.php
-ADD ./configs/createdb.sql /var/www/hackazon/database/createdb.sql
-RUN chown -R www-data:www-data /var/www/
-RUN chown -R www-data:www-data /var/www/hackazon/web/products_pictures/
-RUN chown -R www-data:www-data /var/www/hackazon/web/upload
-RUN chown -R www-data:www-data /var/www/hackazon/assets/config
-RUN chmod 755 /start.sh
-RUN chmod 755 /etc/apache2/foreground.sh
-RUN a2enmod rewrite 
-RUN mkdir /var/log/supervisor/
+MAINTAINER phithon <root@leavesongs.com>
 
-EXPOSE 80
-CMD ["/bin/bash", "/start.sh"]
+RUN ln -sf /dev/stdout /var/log/access.log \
+	&& ln -sf /dev/stderr /var/log/error.log \
+    && ln -sf /usr/local/nginx/sbin/nginx /usr/sbin/nginx
+
+RUN apt-get update \
+    && apt-get install -y openssl \
+    && mkdir -p /etc/ssl/nginx/ \
+    && openssl req -x509 -nodes -days 365 -newkey rsa:2048 \
+        -keyout /etc/ssl/nginx/local.key \
+        -out /etc/ssl/nginx/local.crt \
+        -subj "/C=US/ST=Denial/L=Springfield/O=Dis/CN=localhost" \
+    && rm -rf /var/lib/apt/lists/* \
+    && apt-get purge -y --auto-remove openssl
+
+EXPOSE 80 443
+
+CMD ["nginx", "-c", "/etc/nginx/nginx.conf", "-g", "daemon off;"]
